@@ -1,0 +1,435 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Tienda Alimenticia - Transacciones DB</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <style>
+        body {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+        .container {
+            padding-top: 2rem;
+        }
+        .card {
+            box-shadow: 0 10px 30px rgba(0,0,0,0.1);
+            border: none;
+            border-radius: 15px;
+        }
+        .card-header {
+            background: linear-gradient(45deg, #28a745, #20c997);
+            color: white;
+            border-radius: 15px 15px 0 0 !important;
+        }
+        .btn-primary {
+            background: linear-gradient(45deg, #007bff, #0056b3);
+            border: none;
+        }
+        .btn-danger {
+            background: linear-gradient(45deg, #dc3545, #c82333);
+            border: none;
+        }
+        .btn-warning {
+            background: linear-gradient(45deg, #ffc107, #e0a800);
+            border: none;
+        }
+        .product-item {
+            transition: transform 0.2s;
+        }
+        .product-item:hover {
+            transform: scale(1.02);
+        }
+        .alert {
+            border-radius: 10px;
+        }
+        .footer-info {
+            background: rgba(255,255,255,0.1);
+            border-radius: 10px;
+            padding: 1rem;
+            margin-top: 2rem;
+            color: white;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <!-- Header -->
+        <div class="row mb-4">
+            <div class="col-12 text-center">
+                <h1 class="text-white mb-3">
+                    <i class="fas fa-store"></i> Tienda Alimenticia
+                </h1>
+                <p class="text-white-50">
+                    <i class="fas fa-database"></i> 
+                    Sistema de demostración de transacciones de base de datos en Python
+                </p>
+            </div>
+        </div>
+
+        <!-- Mensajes de resultado -->
+        <div id="mensaje-resultado" class="d-none">
+            <div class="alert" role="alert">
+                <div id="mensaje-contenido"></div>
+            </div>
+        </div>
+
+        <!-- Panel principal -->
+        <div class="row">
+            <!-- Selección de cliente -->
+            <div class="col-md-4 mb-4">
+                <div class="card">
+                    <div class="card-header">
+                        <h5><i class="fas fa-user"></i> Seleccionar Cliente</h5>
+                    </div>
+                    <div class="card-body">
+                        <select id="cliente-select" class="form-select">
+                            <option value="">Seleccione un cliente...</option>
+                            {% for cliente in clientes %}
+                            <option value="{{ cliente.id }}">{{ cliente.nombre }} ({{ cliente.email }})</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Productos disponibles -->
+            <div class="col-md-8 mb-4">
+                <div class="card">
+                    <div class="card-header">
+                        <h5><i class="fas fa-apple-alt"></i> Productos Disponibles</h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="row" id="productos-lista">
+                            {% for producto in productos %}
+                            <div class="col-md-6 mb-3">
+                                <div class="card product-item h-100">
+                                    <div class="card-body d-flex flex-column">
+                                        <h6 class="card-title">{{ producto.nombre }}</h6>
+                                        <p class="card-text text-muted">{{ producto.categoria }}</p>
+                                        <div class="mt-auto">
+                                            <p class="mb-2">
+                                                <strong>Precio:</strong> ${{ "%.2f"|format(producto.precio) }}<br>
+                                                <strong>Stock:</strong> {{ producto.stock }} unidades
+                                            </p>
+                                            <div class="input-group input-group-sm">
+                                                <input type="number" 
+                                                       class="form-control cantidad-input" 
+                                                       placeholder="Cantidad" 
+                                                       min="1" 
+                                                       max="{{ producto.stock }}"
+                                                       data-producto-id="{{ producto.id }}"
+                                                       data-precio="{{ producto.precio }}"
+                                                       data-nombre="{{ producto.nombre }}">
+                                                <button class="btn btn-primary btn-agregar" 
+                                                        data-producto-id="{{ producto.id }}">
+                                                    <i class="fas fa-cart-plus"></i>
+                                                </button>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            {% endfor %}
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Carrito de compras -->
+        <div class="row">
+            <div class="col-12">
+                <div class="card">
+                    <div class="card-header">
+                        <h5><i class="fas fa-shopping-cart"></i> Carrito de Compras</h5>
+                    </div>
+                    <div class="card-body">
+                        <div id="carrito-vacio" class="text-center text-muted">
+                            <i class="fas fa-shopping-cart fa-3x mb-3"></i>
+                            <p>El carrito está vacío. Agregue productos para continuar.</p>
+                        </div>
+                        
+                        <div id="carrito-items" class="d-none">
+                            <div class="table-responsive">
+                                <table class="table table-striped">
+                                    <thead>
+                                        <tr>
+                                            <th>Producto</th>
+                                            <th>Cantidad</th>
+                                            <th>Precio Unit.</th>
+                                            <th>Subtotal</th>
+                                            <th>Acción</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="carrito-tbody">
+                                    </tbody>
+                                    <tfoot>
+                                        <tr class="table-info">
+                                            <th colspan="3">Total:</th>
+                                            <th id="carrito-total">$0.00</th>
+                                            <th></th>
+                                        </tr>
+                                    </tfoot>
+                                </table>
+                            </div>
+                        </div>
+                        
+                        <!-- Botones de acción -->
+                        <div class="row mt-3">
+                            <div class="col-md-4">
+                                <button id="btn-realizar-venta" class="btn btn-success w-100" disabled>
+                                    <i class="fas fa-check"></i> Realizar Venta
+                                </button>
+                            </div>
+                            <div class="col-md-4">
+                                <button id="btn-simular-error" class="btn btn-warning w-100" disabled>
+                                    <i class="fas fa-exclamation-triangle"></i> Simular Error
+                                </button>
+                            </div>
+                            <div class="col-md-4">
+                                <button id="btn-limpiar-carrito" class="btn btn-danger w-100">
+                                    <i class="fas fa-trash"></i> Limpiar Carrito
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Información sobre transacciones -->
+        <div class="footer-info">
+            <h6><i class="fas fa-info-circle"></i> Sobre las Transacciones</h6>
+            <p class="mb-2">
+                <strong>Propiedades ACID:</strong>
+            </p>
+            <ul class="mb-2">
+                <li><strong>Atomicidad:</strong> Todas las operaciones se ejecutan o ninguna</li>
+                <li><strong>Consistencia:</strong> Los datos quedan en un estado válido</li>
+                <li><strong>Aislamiento:</strong> Las transacciones no se interfieren</li>
+                <li><strong>Durabilidad:</strong> Los cambios persisten después del commit</li>
+            </ul>
+            <p class="mb-0">
+                <strong>Pruebe:</strong> Use "Simular Error" para ver cómo funciona el rollback cuando una transacción falla.
+            </p>
+        </div>
+    </div>
+
+    <!-- Scripts -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        // Carrito de compras
+        let carrito = [];
+        
+        // Event listeners
+        document.addEventListener('DOMContentLoaded', function() {
+            // Agregar productos al carrito
+            document.querySelectorAll('.btn-agregar').forEach(btn => {
+                btn.addEventListener('click', function() {
+                    const productoId = this.dataset.productoId;
+                    const input = document.querySelector(`input[data-producto-id="${productoId}"]`);
+                    const cantidad = parseInt(input.value);
+                    
+                    if (cantidad && cantidad > 0) {
+                        agregarAlCarrito(productoId, cantidad, input.dataset.precio, input.dataset.nombre);
+                        input.value = '';
+                    } else {
+                        alert('Por favor ingrese una cantidad válida');
+                    }
+                });
+            });
+            
+            // Realizar venta
+            document.getElementById('btn-realizar-venta').addEventListener('click', realizarVenta);
+            
+            // Simular error
+            document.getElementById('btn-simular-error').addEventListener('click', simularError);
+            
+            // Limpiar carrito
+            document.getElementById('btn-limpiar-carrito').addEventListener('click', limpiarCarrito);
+        });
+        
+        function agregarAlCarrito(productoId, cantidad, precio, nombre) {
+            const existente = carrito.find(item => item.producto_id == productoId);
+            
+            if (existente) {
+                existente.cantidad += cantidad;
+            } else {
+                carrito.push({
+                    producto_id: parseInt(productoId),
+                    cantidad: cantidad,
+                    precio: parseFloat(precio),
+                    nombre: nombre
+                });
+            }
+            
+            actualizarCarrito();
+        }
+        
+        function eliminarDelCarrito(productoId) {
+            carrito = carrito.filter(item => item.producto_id != productoId);
+            actualizarCarrito();
+        }
+        
+        function actualizarCarrito() {
+            const carritoVacio = document.getElementById('carrito-vacio');
+            const carritoItems = document.getElementById('carrito-items');
+            const tbody = document.getElementById('carrito-tbody');
+            const totalElement = document.getElementById('carrito-total');
+            
+            if (carrito.length === 0) {
+                carritoVacio.classList.remove('d-none');
+                carritoItems.classList.add('d-none');
+                document.getElementById('btn-realizar-venta').disabled = true;
+                document.getElementById('btn-simular-error').disabled = true;
+            } else {
+                carritoVacio.classList.add('d-none');
+                carritoItems.classList.remove('d-none');
+                document.getElementById('btn-realizar-venta').disabled = false;
+                document.getElementById('btn-simular-error').disabled = false;
+                
+                // Actualizar tabla
+                tbody.innerHTML = '';
+                let total = 0;
+                
+                carrito.forEach(item => {
+                    const subtotal = item.cantidad * item.precio;
+                    total += subtotal;
+                    
+                    const row = `
+                        <tr>
+                            <td>${item.nombre}</td>
+                            <td>${item.cantidad}</td>
+                            <td>$${item.precio.toFixed(2)}</td>
+                            <td>$${subtotal.toFixed(2)}</td>
+                            <td>
+                                <button class="btn btn-sm btn-danger" onclick="eliminarDelCarrito(${item.producto_id})">
+                                    <i class="fas fa-trash"></i>
+                                </button>
+                            </td>
+                        </tr>
+                    `;
+                    tbody.innerHTML += row;
+                });
+                
+                totalElement.textContent = `$${total.toFixed(2)}`;
+            }
+        }
+        
+        function limpiarCarrito() {
+            carrito = [];
+            actualizarCarrito();
+        }
+        
+        function mostrarMensaje(mensaje, tipo) {
+            const mensajeDiv = document.getElementById('mensaje-resultado');
+            const contenido = document.getElementById('mensaje-contenido');
+            
+            mensajeDiv.className = `alert alert-${tipo}`;
+            contenido.innerHTML = mensaje;
+            mensajeDiv.classList.remove('d-none');
+            
+            // Auto-ocultar después de 5 segundos
+            setTimeout(() => {
+                mensajeDiv.classList.add('d-none');
+            }, 5000);
+        }
+        
+        function realizarVenta() {
+            const clienteId = document.getElementById('cliente-select').value;
+            
+            if (!clienteId) {
+                alert('Por favor seleccione un cliente');
+                return;
+            }
+            
+            if (carrito.length === 0) {
+                alert('El carrito está vacío');
+                return;
+            }
+            
+            const data = {
+                cliente_id: parseInt(clienteId),
+                items: carrito.map(item => ({
+                    producto_id: item.producto_id,
+                    cantidad: item.cantidad
+                }))
+            };
+            
+            fetch('/realizar_venta', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify(data)
+            })
+            .then(response => response.json())
+            .then(result => {
+                if (result.success) {
+                    mostrarMensaje(
+                        `<strong>¡Venta exitosa!</strong><br>
+                         ID de venta: ${result.venta_id}<br>
+                         Total: $${result.total.toFixed(2)}`,
+                        'success'
+                    );
+                    limpiarCarrito();
+                    // Recargar productos para actualizar stock
+                    setTimeout(() => {
+                        location.reload();
+                    }, 2000);
+                } else {
+                    mostrarMensaje(
+                        `<strong>Error en la venta:</strong><br>${result.error}`,
+                        'danger'
+                    );
+                }
+            })
+            .catch(error => {
+                mostrarMensaje(
+                    `<strong>Error de conexión:</strong><br>${error.message}`,
+                    'danger'
+                );
+            });
+        }
+        
+        function simularError() {
+            const clienteId = document.getElementById('cliente-select').value || 1;
+            
+            const data = {
+                cliente_id: parseInt(clienteId),
+                items: carrito.length > 0 ? carrito.map(item => ({
+                    producto_id: item.producto_id,
+                    cantidad: item.cantidad
+                })) : [{ producto_id: 1, cantidad: 1 }]
+            };
+            
+            fetch('/simular_error', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify(data)
+            })
+            .then(response => response.json())
+            .then(result => {
+                mostrarMensaje(
+                    `<strong>Demostración de Rollback:</strong><br>
+                     ${result.error}<br>
+                     <em>Todos los cambios fueron deshecho automáticamente.</em>`,
+                    'warning'
+                );
+            })
+            .catch(error => {
+                mostrarMensaje(
+                    `<strong>Error de conexión:</strong><br>${error.message}`,
+                    'danger'
+                );
+            });
+        }
+    </script>
+</body>
+</html>
